@@ -1,0 +1,1240 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>期权组合收益分析器</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* 配色方案 */
+        :root {
+            --primary-color: #1F4E79;
+            --secondary-color: #2E75B6;
+            --success-color: #2E7D32;
+            --warning-color: #C0392B;
+            --bg-color: #F8F9FA;
+            --card-bg: #FFFFFF;
+            --border-color: #DEE2E6;
+        }
+        
+        * { box-sizing: border-box; }
+        
+        body {
+            margin: 0;
+            padding: 15px;
+            font-family: Arial, sans-serif;
+            background-color: var(--bg-color);
+        }
+        
+        h1 {
+            margin: 0 0 15px 0;
+            font-size: 24px;
+            color: var(--primary-color);
+        }
+        
+        .main-container {
+            display: flex;
+            gap: 20px;
+            min-height: calc(100vh - 80px);
+        }
+        
+        .left-panel {
+            flex: 0 0 35%;
+            max-width: 35%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .right-panel {
+            flex: 0 0 65%;
+            max-width: 65%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .section {
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 15px;
+            background: var(--card-bg);
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+        
+        .presets {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        
+        .presets button {
+            padding: 6px 12px;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            background: var(--card-bg);
+            border-radius: 3px;
+            font-size: 12px;
+            color: var(--primary-color);
+        }
+        
+        .presets button:hover {
+            background: #e8f0f7;
+            border-color: var(--secondary-color);
+        }
+        
+        .preset-desc {
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+            padding: 8px;
+            background: var(--bg-color);
+            border-radius: 3px;
+        }
+        
+        .add-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .add-buttons button {
+            padding: 8px 14px;
+            cursor: pointer;
+            border: 1px solid var(--primary-color);
+            background: var(--primary-color);
+            color: var(--card-bg);
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        
+        .add-buttons button:hover {
+            background: #163d5e;
+        }
+        
+        .add-buttons .btn-clear {
+            background: var(--card-bg);
+            color: #666;
+            border-color: var(--border-color);
+        }
+        
+        .legs-container {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .leg-item {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+            background: var(--card-bg);
+        }
+        
+        .leg-future {
+            border-left: 4px solid #888 !important;
+        }
+        
+        .leg-option {
+            border-left: 4px solid var(--secondary-color) !important;
+        }
+        
+        .leg-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .leg-header strong {
+            font-size: 13px;
+            flex: 1;
+            color: var(--primary-color);
+        }
+        
+        .leg-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .leg-header button {
+            padding: 4px 10px;
+            cursor: pointer;
+            border: 1px solid var(--warning-color);
+            background: var(--card-bg);
+            color: var(--warning-color);
+            border-radius: 3px;
+            font-size: 11px;
+        }
+        
+        .leg-header button:hover {
+            background: var(--warning-color);
+            color: var(--card-bg);
+        }
+        
+        .leg-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            font-size: 12px;
+        }
+        
+        .leg-controls select,
+        .leg-controls input {
+            padding: 4px 6px;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        
+        .leg-controls input[type="number"] {
+            width: 70px;
+        }
+        
+        .leg-error {
+            color: var(--warning-color);
+            font-size: 11px;
+            margin-top: 4px;
+        }
+        
+        .params-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        
+        .param-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .param-item label {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .param-item input {
+            padding: 6px 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        
+        .btn-calculate {
+            grid-column: 1 / -1;
+            padding: 10px;
+            background: var(--success-color);
+            color: var(--card-bg);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        .btn-calculate:hover {
+            background: #1b5e20;
+        }
+        
+        .btn-save {
+            grid-column: 1 / -1;
+            padding: 10px;
+            background: var(--secondary-color);
+            color: var(--card-bg);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        .btn-save:hover {
+            background: #1a5a8a;
+        }
+        
+        .save-status {
+            grid-column: 1 / -1;
+            font-size: 12px;
+            color: var(--success-color);
+            text-align: center;
+            padding: 5px;
+            display: none;
+        }
+        
+        .empty-hint {
+            text-align: center;
+            color: #999;
+            padding: 20px;
+            font-size: 13px;
+        }
+        
+        .chart-container {
+            flex: 1;
+            min-height: 400px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 15px;
+        }
+        
+        .chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        
+        .metric-box {
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            background: var(--card-bg);
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .metric-label {
+            font-size: 11px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        
+        .metric-value {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .profit { color: var(--success-color); }
+        .loss { color: var(--warning-color); }
+        
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+            
+            .left-panel,
+            .right-panel {
+                flex: 1 1 100%;
+                max-width: 100%;
+            }
+            
+            .metrics {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .params-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            body { padding: 10px; }
+            h1 { font-size: 18px; }
+            .metrics { grid-template-columns: 1fr; }
+            .leg-controls { flex-direction: column; align-items: stretch; }
+            .leg-controls input[type="number"] { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <h1>期权组合收益分析器</h1>
+    
+    <div class="main-container">
+        <!-- 左侧面板 35% -->
+        <div class="left-panel">
+            <!-- 预设策略区 -->
+            <div class="section">
+                <div class="section-title">预设策略</div>
+                <div class="presets">
+                    <button onclick="loadPreset('covered')">备兑开仓</button>
+                    <button onclick="loadPreset('protective')">保护性看跌</button>
+                    <button onclick="loadPreset('straddle')">跨式组合</button>
+                    <button onclick="loadPreset('strangle')">宽跨式</button>
+                    <button onclick="loadPreset('bullSpread')">牛市价差</button>
+                    <button onclick="loadPreset('ironCondor')">铁鹰式</button>
+                </div>
+                <div class="preset-desc" id="presetDesc"></div>
+            </div>
+            
+            <!-- 期权腿管理区 -->
+            <div class="section">
+                <div class="section-title">期权腿管理</div>
+                <div class="add-buttons">
+                    <button onclick="addLeg('option')">+ 添加期权腿</button>
+                    <button onclick="addLeg('future')">+ 添加期货腿</button>
+                    <button class="btn-clear" onclick="clearLegs()">清空所有</button>
+                </div>
+                <div class="legs-container" id="legs"></div>
+                <div class="empty-hint" id="emptyHint">暂无期权腿，请点击上方按钮添加</div>
+            </div>
+            
+            <!-- 全局参数设置区 -->
+            <div class="section">
+                <div class="section-title">全局参数</div>
+                <div class="params-grid">
+                    <div class="param-item">
+                        <label>当前标的价格</label>
+                        <input type="number" id="currentPrice" value="100" onchange="onGlobalParamChange()">
+                    </div>
+                    <div class="param-item">
+                        <label>步长</label>
+                        <input type="number" id="priceStep" value="3" onchange="onGlobalParamChange()">
+                    </div>
+                    <div class="param-item">
+                        <label>价格范围最小值</label>
+                        <input type="number" id="priceMin" value="70" onchange="onGlobalParamChange()">
+                    </div>
+                    <div class="param-item">
+                        <label>价格范围最大值</label>
+                        <input type="number" id="priceMax" value="130" onchange="onGlobalParamChange()">
+                    </div>
+                    <button class="btn-calculate" onclick="calculate()">计算收益曲线</button>
+                    <button class="btn-save" onclick="saveData()">保存配置</button>
+                    <div class="save-status" id="saveStatus">配置已保存</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧主区域 65% -->
+        <div class="right-panel">
+            <!-- 图表区 -->
+            <div class="chart-container">
+                <canvas id="chart"></canvas>
+            </div>
+            
+            <!-- 关键指标卡片 -->
+            <div class="metrics" id="metrics">
+                <div class="metric-box">
+                    <div class="metric-label">最大收益</div>
+                    <div class="metric-value profit" id="maxProfit">--</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">最大亏损</div>
+                    <div class="metric-value loss" id="maxLoss">--</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">盈亏平衡点</div>
+                    <div class="metric-value" id="breakevenPoints">--</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">净权利金</div>
+                    <div class="metric-value" id="netPremium">--</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局参数
+        let globalParams = {
+            currentPrice: 100,
+            priceRange: { min: 70, max: 130, step: 3 },
+            theme: 'default',
+            chartConfig: {}
+        };
+        
+        // 计算层输出结果
+        let calculationResult = {
+            legsPayoff: [],
+            combinedPayoff: { prices: [], payoffs: [] },
+            metrics: { maxProfit: null, maxLoss: null, breakevenPoints: [], netPremium: 0 }
+        };
+        
+        let legs = [];
+        let chart = null;
+        let legCounter = 0;
+        
+        // 预定义颜色列表 - 按腿序号分配
+        const COLORS = [
+            '#2E75B6',  // Leg 1 - 蓝
+            '#C0392B',  // Leg 2 - 红
+            '#2E7D32',  // Leg 3 - 绿
+            '#D35400',  // Leg 4 - 深橙
+            '#E67E22',  // Leg 5 - 橙
+            '#8E44AD',  // Leg 6 - 紫
+            '#16A085',  // Leg 7 - 青
+            '#F39C12'   // Leg 8 - 金黄
+        ];
+        
+        // 🔒 SECURITY-FIX: 使用crypto API生成更安全的UUID
+        function generateUUID() {
+            if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+                return crypto.randomUUID();
+            }
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = (Date.now() + Math.random() * 16) % 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+        
+        function getNextColor() {
+            const usedColors = legs.map(l => l.color);
+            for (const color of COLORS) {
+                if (!usedColors.includes(color)) return color;
+            }
+            return COLORS[legs.length % COLORS.length];
+        }
+        
+        function generateLabel(leg, index) {
+            if (leg.kind === 'future') {
+                const dir = leg.direction === 'buy' ? 'Buy' : 'Sell';
+                return 'Leg' + (index + 1) + '-Future-' + dir;
+            } else {
+                const dir = leg.direction === 'buy' ? 'Buy' : 'Sell';
+                const type = leg.optionType === 'call' ? 'Call' : 'Put';
+                return 'Leg' + (index + 1) + '-' + type + '-' + dir;
+            }
+        }
+        
+        const PRESETS = {
+            covered: {
+                name: '备兑开仓',
+                desc: '买入期货 + 卖出Call | 中性偏多 | 持有期货的同时卖出虚值Call，赚取权利金降低持仓成本',
+                legs: [
+                    { kind: 'future', direction: 'buy', price: 100, quantity: 1 },
+                    { kind: 'option', direction: 'sell', optionType: 'call', strikePrice: 110, premium: 2, quantity: 1 }
+                ]
+            },
+            protective: {
+                name: '保护性看跌',
+                desc: '买入期货 + 买入Put | 中性偏多 | 持有期货的同时买入Put作为保险，锁定下行风险',
+                legs: [
+                    { kind: 'future', direction: 'buy', price: 100, quantity: 1 },
+                    { kind: 'option', direction: 'buy', optionType: 'put', strikePrice: 90, premium: 3, quantity: 1 }
+                ]
+            },
+            straddle: {
+                name: '跨式组合',
+                desc: '买入Call + 买入Put | 大幅波动 | 同时买入相同行权价的Call和Put，赌市场大幅波动',
+                legs: [
+                    { kind: 'option', direction: 'buy', optionType: 'call', strikePrice: 100, premium: 5, quantity: 1 },
+                    { kind: 'option', direction: 'buy', optionType: 'put', strikePrice: 100, premium: 5, quantity: 1 }
+                ]
+            },
+            strangle: {
+                name: '宽跨式',
+                desc: '卖出Call + 卖出Put | 低波动 | 同时卖出虚值Call和Put，赚取权利金，赌市场横盘',
+                legs: [
+                    { kind: 'option', direction: 'sell', optionType: 'call', strikePrice: 110, premium: 2, quantity: 1 },
+                    { kind: 'option', direction: 'sell', optionType: 'put', strikePrice: 90, premium: 2, quantity: 1 }
+                ]
+            },
+            bullSpread: {
+                name: '牛市价差',
+                desc: '买入Call(低行权价) + 卖出Call(高行权价) | 看多 | 降低权利金成本',
+                legs: [
+                    { kind: 'option', direction: 'buy', optionType: 'call', strikePrice: 90, premium: 5, quantity: 1 },
+                    { kind: 'option', direction: 'sell', optionType: 'call', strikePrice: 110, premium: 3, quantity: 1 }
+                ]
+            },
+            ironCondor: {
+                name: '铁鹰式',
+                desc: '买入Call(高) + 卖出Call(中) + 卖出Put(中) + 买入Put(低) | 低波动 | 锁定最大盈亏',
+                legs: [
+                    { kind: 'option', direction: 'buy', optionType: 'call', strikePrice: 110, premium: 2, quantity: 1 },
+                    { kind: 'option', direction: 'sell', optionType: 'call', strikePrice: 105, premium: 3, quantity: 1 },
+                    { kind: 'option', direction: 'sell', optionType: 'put', strikePrice: 95, premium: 3, quantity: 1 },
+                    { kind: 'option', direction: 'buy', optionType: 'put', strikePrice: 90, premium: 2, quantity: 1 }
+                ]
+            }
+        };
+        
+        function loadPreset(key) {
+            const preset = PRESETS[key];
+            if (!preset) return;
+            
+            legs = preset.legs.map(l => {
+                const newLeg = { ...l };
+                newLeg.id = generateUUID();
+                newLeg.color = getNextColor();
+                newLeg.quantity = newLeg.quantity || 1;
+                return newLeg;
+            });
+            
+            legs.forEach((leg, index) => {
+                leg.label = generateLabel(leg, index);
+            });
+            
+            document.getElementById('presetDesc').textContent = preset.desc;
+            renderLegs();
+            autoAdjustPriceRange();
+            calculate();
+        }
+        
+        function addLeg(kind) {
+            legCounter++;
+            let newLeg;
+            
+            if (kind === 'future') {
+                newLeg = {
+                    id: generateUUID(),
+                    kind: 'future',
+                    direction: 'buy',
+                    price: 100,
+                    quantity: 1,
+                    color: getNextColor()
+                };
+            } else {
+                newLeg = {
+                    id: generateUUID(),
+                    kind: 'option',
+                    direction: 'buy',
+                    optionType: 'call',
+                    strikePrice: 100,
+                    premium: 5,
+                    quantity: 1,
+                    color: getNextColor()
+                };
+            }
+            
+            newLeg.label = generateLabel(newLeg, legs.length);
+            legs.push(newLeg);
+            
+            legs.forEach((leg, index) => {
+                leg.label = generateLabel(leg, index);
+            });
+            
+            renderLegs();
+            autoAdjustPriceRange();
+            calculate(); // 步骤2: 添加后自动计算
+        }
+        
+        function removeLeg(index) {
+            legs.splice(index, 1);
+            legs.forEach((leg, index) => {
+                leg.label = generateLabel(leg, index);
+            });
+            renderLegs();
+            autoAdjustPriceRange();
+            calculate();
+        }
+        
+        function clearLegs() {
+            legs = [];
+            legCounter = 0;
+            renderLegs();
+            document.getElementById('presetDesc').textContent = '';
+            if (chart) { chart.destroy(); chart = null; }
+            document.getElementById('maxProfit').textContent = '--';
+            document.getElementById('maxLoss').textContent = '--';
+            document.getElementById('breakevenPoints').textContent = '--';
+            document.getElementById('netPremium').textContent = '--';
+        }
+        
+        // 步骤3: 实时校验输入值
+        function validateLegInput(leg) {
+            const errors = [];
+            
+            if (leg.kind === 'option') {
+                if (leg.strikePrice <= 0) errors.push('行权价必须为正数');
+                if (leg.premium < 0) errors.push('权利金不能为负数');
+            } else {
+                if (leg.price <= 0) errors.push('开仓价必须为正数');
+            }
+            
+            if (leg.quantity < 1) errors.push('数量至少为1');
+            
+            return errors;
+        }
+        
+        // 步骤4: 修改任意参数后自动重新计算
+        // 🔒 SECURITY-FIX: 输入验证 - 验证parseFloat结果
+        function updateLeg(index, field, value) {
+            if (field === 'strikePrice' || field === 'premium' || field === 'price' || field === 'quantity') {
+                const parsed = parseFloat(value);
+                if (isNaN(parsed)) {
+                    const errorEl = document.getElementById('error-' + index);
+                    if (errorEl) {
+                        errorEl.textContent = '请输入有效的数字';
+                    }
+                    return;
+                }
+                legs[index][field] = parsed;
+            } else {
+                legs[index][field] = value;
+            }
+            
+            // 校验
+            const errors = validateLegInput(legs[index]);
+            const errorEl = document.getElementById('error-' + index);
+            if (errorEl) {
+                errorEl.textContent = errors.length > 0 ? errors.join('; ') : '';
+            }
+            
+            if (errors.length === 0) {
+                if (field === 'strikePrice' || field === 'price') {
+                    autoAdjustPriceRange();
+                }
+                legs[index].label = generateLabel(legs[index], index);
+                renderLegs();
+                calculate(); // 自动重新计算
+            }
+        }
+        
+        function autoAdjustPriceRange() {
+            if (legs.length === 0) {
+                const currentPrice = globalParams.currentPrice || 100;
+                globalParams.priceRange.min = currentPrice * 0.7;
+                globalParams.priceRange.max = currentPrice * 1.3;
+            } else {
+                let values = [];
+                legs.forEach(l => {
+                    if (l.kind === 'option') values.push(l.strikePrice);
+                    else values.push(l.price);
+                });
+                
+                const minVal = Math.min(...values);
+                const maxVal = Math.max(...values);
+                const range = maxVal - minVal;
+                const padding = Math.max(range * 0.5, minVal * 0.3);
+                
+                globalParams.priceRange.min = Math.max(0, Math.floor((minVal - padding) / 10) * 10);
+                globalParams.priceRange.max = Math.ceil((maxVal + padding) / 10) * 10;
+            }
+            
+            globalParams.priceRange.step = (globalParams.priceRange.max - globalParams.priceRange.min) / 20;
+            
+            document.getElementById('priceMin').value = parseFloat(globalParams.priceRange.min.toFixed(2));
+            document.getElementById('priceMax').value = parseFloat(globalParams.priceRange.max.toFixed(2));
+            document.getElementById('priceStep').value = parseFloat(globalParams.priceRange.step.toFixed(2));
+        }
+        
+        // 🔒 SECURITY-FIX: XSS - 使用DOM API替代innerHTML
+        function renderLegs() {
+            const container = document.getElementById('legs');
+            const emptyHint = document.getElementById('emptyHint');
+            container.innerHTML = '';
+            
+            // 显示/隐藏空提示
+            emptyHint.style.display = legs.length === 0 ? 'block' : 'none';
+            
+            legs.forEach((leg, index) => {
+                const div = document.createElement('div');
+                div.className = 'leg-item ' + (leg.kind === 'future' ? 'leg-future' : 'leg-option');
+                
+                // Header
+                const header = document.createElement('div');
+                header.className = 'leg-header';
+                
+                const strong = document.createElement('strong');
+                const kindLabel = leg.kind === 'future' ? '期货' : '期权';
+                strong.textContent = kindLabel + '腿 ' + leg.label;
+                
+                const colorDiv = document.createElement('div');
+                colorDiv.className = 'leg-color';
+                colorDiv.style.backgroundColor = leg.color;
+                
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '删除';
+                deleteBtn.onclick = () => removeLeg(index);
+                
+                header.appendChild(strong);
+                header.appendChild(colorDiv);
+                header.appendChild(deleteBtn);
+                div.appendChild(header);
+                
+                // Controls
+                const controls = document.createElement('div');
+                controls.className = 'leg-controls';
+                
+                if (leg.kind === 'future') {
+                    const dirSelect = document.createElement('select');
+                    dirSelect.onchange = (e) => updateLeg(index, 'direction', e.target.value);
+                    const buyOpt = document.createElement('option');
+                    buyOpt.value = 'buy';
+                    buyOpt.textContent = '买入';
+                    if (leg.direction === 'buy') buyOpt.selected = true;
+                    const sellOpt = document.createElement('option');
+                    sellOpt.value = 'sell';
+                    sellOpt.textContent = '卖出';
+                    if (leg.direction === 'sell') sellOpt.selected = true;
+                    dirSelect.appendChild(buyOpt);
+                    dirSelect.appendChild(sellOpt);
+                    
+                    const priceLabel = document.createElement('label');
+                    priceLabel.textContent = '开仓价:';
+                    const priceInput = document.createElement('input');
+                    priceInput.type = 'number';
+                    priceInput.value = leg.price;
+                    priceInput.onchange = (e) => updateLeg(index, 'price', e.target.value);
+                    priceLabel.appendChild(priceInput);
+                    
+                    const qtyLabel = document.createElement('label');
+                    qtyLabel.textContent = '数量:';
+                    const qtyInput = document.createElement('input');
+                    qtyInput.type = 'number';
+                    qtyInput.value = leg.quantity;
+                    qtyInput.min = '1';
+                    qtyInput.onchange = (e) => updateLeg(index, 'quantity', e.target.value);
+                    qtyLabel.appendChild(qtyInput);
+                    
+                    controls.appendChild(dirSelect);
+                    controls.appendChild(priceLabel);
+                    controls.appendChild(qtyLabel);
+                } else {
+                    const dirSelect = document.createElement('select');
+                    dirSelect.onchange = (e) => updateLeg(index, 'direction', e.target.value);
+                    const buyOpt = document.createElement('option');
+                    buyOpt.value = 'buy';
+                    buyOpt.textContent = '买入';
+                    if (leg.direction === 'buy') buyOpt.selected = true;
+                    const sellOpt = document.createElement('option');
+                    sellOpt.value = 'sell';
+                    sellOpt.textContent = '卖出';
+                    if (leg.direction === 'sell') sellOpt.selected = true;
+                    dirSelect.appendChild(buyOpt);
+                    dirSelect.appendChild(sellOpt);
+                    
+                    const typeSelect = document.createElement('select');
+                    typeSelect.onchange = (e) => updateLeg(index, 'optionType', e.target.value);
+                    const callOpt = document.createElement('option');
+                    callOpt.value = 'call';
+                    callOpt.textContent = 'Call';
+                    if (leg.optionType === 'call') callOpt.selected = true;
+                    const putOpt = document.createElement('option');
+                    putOpt.value = 'put';
+                    putOpt.textContent = 'Put';
+                    if (leg.optionType === 'put') putOpt.selected = true;
+                    typeSelect.appendChild(callOpt);
+                    typeSelect.appendChild(putOpt);
+                    
+                    const strikeLabel = document.createElement('label');
+                    strikeLabel.textContent = '行权价:';
+                    const strikeInput = document.createElement('input');
+                    strikeInput.type = 'number';
+                    strikeInput.value = leg.strikePrice;
+                    strikeInput.onchange = (e) => updateLeg(index, 'strikePrice', e.target.value);
+                    strikeLabel.appendChild(strikeInput);
+                    
+                    const premiumLabel = document.createElement('label');
+                    premiumLabel.textContent = '权利金:';
+                    const premiumInput = document.createElement('input');
+                    premiumInput.type = 'number';
+                    premiumInput.value = leg.premium;
+                    premiumInput.onchange = (e) => updateLeg(index, 'premium', e.target.value);
+                    premiumLabel.appendChild(premiumInput);
+                    
+                    const qtyLabel = document.createElement('label');
+                    qtyLabel.textContent = '数量:';
+                    const qtyInput = document.createElement('input');
+                    qtyInput.type = 'number';
+                    qtyInput.value = leg.quantity;
+                    qtyInput.min = '1';
+                    qtyInput.onchange = (e) => updateLeg(index, 'quantity', e.target.value);
+                    qtyLabel.appendChild(qtyInput);
+                    
+                    controls.appendChild(dirSelect);
+                    controls.appendChild(typeSelect);
+                    controls.appendChild(strikeLabel);
+                    controls.appendChild(premiumLabel);
+                    controls.appendChild(qtyLabel);
+                }
+                
+                div.appendChild(controls);
+                
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'leg-error';
+                errorDiv.id = 'error-' + index;
+                div.appendChild(errorDiv);
+                
+                container.appendChild(div);
+            });
+        }
+        
+        function calculatePayoff(leg, price) {
+            const quantity = leg.quantity || 1;
+            
+            if (leg.kind === 'future') {
+                if (leg.direction === 'buy') {
+                    return (price - leg.price) * quantity;
+                } else {
+                    return (leg.price - price) * quantity;
+                }
+            }
+            
+            const { direction, optionType, strikePrice, premium } = leg;
+            let payoff = 0;
+            
+            if (optionType === 'call') {
+                if (direction === 'buy') {
+                    payoff = Math.max(price - strikePrice, 0) - premium;
+                } else {
+                    payoff = premium - Math.max(price - strikePrice, 0);
+                }
+            } else {
+                if (direction === 'buy') {
+                    payoff = Math.max(strikePrice - price, 0) - premium;
+                } else {
+                    payoff = premium - Math.max(strikePrice - price, 0);
+                }
+            }
+            
+            return payoff * quantity;
+        }
+        
+        function calculateLegsPayoff(prices) {
+            return legs.map(leg => {
+                return prices.map(price => ({
+                    price: price,
+                    payoff: calculatePayoff(leg, price)
+                }));
+            });
+        }
+        
+        function calculateCombinedPayoff(prices) {
+            const payoffs = prices.map(price => {
+                return legs.reduce((sum, leg) => sum + calculatePayoff(leg, price), 0);
+            });
+            return { prices, payoffs };
+        }
+        
+        function findBreakevenPoints(prices, payoffs) {
+            const points = [];
+            const threshold = 1e-6;
+            const maxPoints = 4;
+            
+            for (let i = 0; i < payoffs.length - 1 && points.length < maxPoints; i++) {
+                if (Math.abs(payoffs[i]) < threshold) {
+                    points.push(prices[i]);
+                } else if (payoffs[i] * payoffs[i + 1] < 0) {
+                    let left = prices[i];
+                    let right = prices[i + 1];
+                    let mid = (left + right) / 2;
+                    
+                    for (let j = 0; j < 100; j++) {
+                        const midPayoff = legs.reduce((sum, leg) => sum + calculatePayoff(leg, mid), 0);
+                        if (Math.abs(midPayoff) < threshold) break;
+                        
+                        if (midPayoff * payoffs[i] < 0) {
+                            right = mid;
+                        } else {
+                            left = mid;
+                        }
+                        mid = (left + right) / 2;
+                    }
+                    points.push(parseFloat(mid.toFixed(2)));
+                }
+            }
+            
+            return [...new Set(points)].slice(0, maxPoints);
+        }
+        
+        function calculateActualMetrics() {
+            if (legs.length === 0) {
+                return { maxProfit: null, maxLoss: null };
+            }
+            
+            const hasFuture = legs.some(l => l.kind === 'future');
+            if (hasFuture) {
+                return { maxProfit: Infinity, maxLoss: -Infinity };
+            }
+            
+            const strikes = new Set();
+            legs.forEach(l => {
+                if (l.kind === 'option') strikes.add(l.strikePrice);
+            });
+            
+            let payoffAtZero = 0;
+            legs.forEach(l => {
+                if (l.kind !== 'option') return;
+                const quantity = l.quantity || 1;
+                if (l.direction === 'buy') {
+                    payoffAtZero -= l.premium * quantity;
+                } else {
+                    payoffAtZero += l.premium * quantity;
+                }
+            });
+            
+            let slopeAtInfinity = 0;
+            legs.forEach(l => {
+                if (l.kind !== 'option') return;
+                const quantity = l.quantity || 1;
+                if (l.optionType === 'call') {
+                    slopeAtInfinity += (l.direction === 'buy') ? quantity : -quantity;
+                }
+            });
+            
+            let payoffAtInfinity;
+            if (slopeAtInfinity > 0) {
+                payoffAtInfinity = Infinity;
+            } else if (slopeAtInfinity < 0) {
+                payoffAtInfinity = -Infinity;
+            } else {
+                payoffAtInfinity = 0;
+                legs.forEach(l => {
+                    if (l.kind !== 'option') return;
+                    const quantity = l.quantity || 1;
+                    if (l.optionType === 'call') {
+                        if (l.direction === 'buy') {
+                            payoffAtInfinity += (-l.strikePrice - l.premium) * quantity;
+                        } else {
+                            payoffAtInfinity += (l.strikePrice + l.premium) * quantity;
+                        }
+                    } else {
+                        if (l.direction === 'buy') {
+                            payoffAtInfinity -= l.premium * quantity;
+                        } else {
+                            payoffAtInfinity += l.premium * quantity;
+                        }
+                    }
+                });
+            }
+            
+            const strikePayoffs = [];
+            strikes.forEach(s => {
+                const payoff = legs.reduce((sum, leg) => sum + calculatePayoff(leg, s), 0);
+                strikePayoffs.push(payoff);
+            });
+            
+            const allPayoffs = [payoffAtZero, payoffAtInfinity, ...strikePayoffs];
+            const finitePayoffs = allPayoffs.filter(p => isFinite(p));
+            
+            let maxProfit, maxLoss;
+            
+            if (allPayoffs.includes(Infinity)) {
+                maxProfit = Infinity;
+            } else {
+                maxProfit = Math.max(...finitePayoffs);
+            }
+            
+            if (allPayoffs.includes(-Infinity)) {
+                maxLoss = -Infinity;
+            } else {
+                maxLoss = Math.min(...finitePayoffs);
+            }
+            
+            return { maxProfit, maxLoss };
+        }
+        
+        function calculateNetPremium() {
+            return legs.reduce((sum, leg) => {
+                if (leg.kind === 'future') return sum;
+                const quantity = leg.quantity || 1;
+                return sum + (leg.direction === 'buy' ? -leg.premium * quantity : leg.premium * quantity);
+            }, 0);
+        }
+        
+        function calculateMetrics(prices, payoffs) {
+            const breakevenPoints = findBreakevenPoints(prices, payoffs);
+            const netPremium = calculateNetPremium();
+            const actualMetrics = calculateActualMetrics();
+            
+            return { 
+                maxProfit: actualMetrics.maxProfit, 
+                maxLoss: actualMetrics.maxLoss, 
+                breakevenPoints, 
+                netPremium 
+            };
+        }
+        
+        function onGlobalParamChange() {
+            globalParams.currentPrice = parseFloat(document.getElementById('currentPrice').value) || 100;
+            globalParams.priceRange.min = parseFloat(document.getElementById('priceMin').value) || 70;
+            globalParams.priceRange.max = parseFloat(document.getElementById('priceMax').value) || 130;
+            globalParams.priceRange.step = parseFloat(document.getElementById('priceStep').value) || 3;
+            
+            calculate();
+        }
+        
+        function calculate() {
+            globalParams.currentPrice = parseFloat(document.getElementById('currentPrice').value) || 100;
+            globalParams.priceRange.min = parseFloat(document.getElementById('priceMin').value) || 70;
+            globalParams.priceRange.max = parseFloat(document.getElementById('priceMax').value) || 130;
+            globalParams.priceRange.step = parseFloat(document.getElementById('priceStep').value) || 3;
+            
+            const prices = [];
+            const minPrice = globalParams.priceRange.min;
+            const maxPrice = globalParams.priceRange.max;
+            const numPoints = 200;
+            const step = (maxPrice - minPrice) / (numPoints - 1);
+            
+            for (let i = 0; i < numPoints; i++) {
+                const price = minPrice + i * step;
+                prices.push(parseFloat(price.toFixed(2)));
+            }
+            
+            calculationResult.legsPayoff = calculateLegsPayoff(prices);
+            calculationResult.combinedPayoff = calculateCombinedPayoff(prices);
+            calculationResult.metrics = calculateMetrics(
+                calculationResult.combinedPayoff.prices,
+                calculationResult.combinedPayoff.payoffs
+            );
+            
+            updateMetricsDisplay();
+            drawChart(calculationResult.combinedPayoff.prices, calculationResult.combinedPayoff.payoffs);
+        }
+        
+        function updateMetricsDisplay() {
+            const metrics = calculationResult.metrics;
+            
+            if (metrics.maxProfit === null) {
+                document.getElementById('maxProfit').textContent = '--';
+            } else if (metrics.maxProfit === Infinity) {
+                document.getElementById('maxProfit').textContent = '无限';
+            } else {
+                document.getElementById('maxProfit').textContent = metrics.maxProfit.toFixed(2);
+            }
+            
+            if (metrics.maxLoss === null) {
+                document.getElementById('maxLoss').textContent = '--';
+            } else if (metrics.maxLoss === -Infinity) {
+                document.getElementById('maxLoss').textContent = '无限';
+            } else {
+                document.getElementById('maxLoss').textContent = metrics.maxLoss.toFixed(2);
+            }
+            
+            if (metrics.breakevenPoints.length > 0) {
+                document.getElementById('breakevenPoints').textContent = metrics.breakevenPoints.join(', ');
+            } else {
+                document.getElementById('breakevenPoints').textContent = '无';
+            }
+            
+            document.getElementById('netPremium').textContent = metrics.netPremium.toFixed(2);
+        }
+        
+        function drawChart(prices, payoffs) {
+            const ctx = document.getElementById('chart').getContext('2d');
+            
+            if (chart) {
+                chart.destroy();
+            }
+            
+            const datasets = [];
+            
+            // 添加每条腿的收益曲线
+            calculationResult.legsPayoff.forEach((legPayoff, index) => {
+                const leg = legs[index];
+                if (!leg) return;
+                
+                const legData = legPayoff.map(point => ({
+                    x: point.price,
+                    y: point.payoff
+                }));
+                
+                datasets.push({
+                    label: leg.label,
+                    data: legData,
+                    borderColor: leg.color,
+                    borderWidth: 1.5,
+                    fill: false,
+                    pointRadius: 0,
+                    tension: 0.1
+                });
+            });
+            
+            // 添加组合总收益曲线（黑色粗线）
+            const combinedData = prices.map((price, index) => ({
+                x: price,
+                y: payoffs[index]
+            }));
+            
+            datasets.push({
+                label: '组合收益',
+                data: combinedData,
+                borderColor: '#1A1A1A',
+                borderWidth: 3,
+                fill: false,
+                pointRadius: 0,
+                tension: 0.1
+            });
+            
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: {
+                                display: true,
+                                text: '标的价格'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '收益'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // 步骤7: 保存配置到localStorage
+        function saveData() {
+            const data = {
+                legs: legs,
+                globalParams: globalParams,
+                legCounter: legCounter
+            };
+            
+            try {
+                localStorage.setItem('optionAnalyzerData', JSON.stringify(data));
+                const statusEl = document.getElementById('saveStatus');
+                statusEl.style.display = 'block';
+                statusEl.textContent = '配置已保存';
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 2000);
+            } catch (e) {
+                // 🔒 SECURITY-FIX: 不暴露错误详情
+                const statusEl = document.getElementById('saveStatus');
+                statusEl.style.display = 'block';
+                statusEl.style.color = '#C0392B';
+                statusEl.textContent = '保存失败';
+            }
+        }
+        
+        // 加载保存的配置
+        function loadData() {
+            try {
+                const saved = localStorage.getItem('optionAnalyzerData');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    legs = data.legs || [];
+                    globalParams = data.globalParams || globalParams;
+                    legCounter = data.legCounter || 0;
+                    
+                    document.getElementById('currentPrice').value = globalParams.currentPrice;
+                    document.getElementById('priceMin').value = globalParams.priceRange.min;
+                    document.getElementById('priceMax').value = globalParams.priceRange.max;
+                    document.getElementById('priceStep').value = globalParams.priceRange.step;
+                    
+                    renderLegs();
+                    calculate();
+                }
+            } catch (e) {
+                // 🔒 SECURITY-FIX: 失败时清除可能损坏的数据
+                try { localStorage.removeItem('optionAnalyzerData'); } catch (_) {}
+                // 不中断页面加载，使用默认值
+            }
+        }
+        
+        // 页面加载时恢复数据
+        window.addEventListener('load', function() {
+            loadData();
+        });
+    </script>
+</body>
+</html>
